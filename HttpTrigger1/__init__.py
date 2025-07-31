@@ -4,7 +4,6 @@ import azure.functions as func
 import requests
 import json
 import io
-from urllib.parse import quote
 from docx import Document
 from openpyxl import load_workbook
 from PyPDF2 import PdfReader
@@ -39,6 +38,14 @@ def parse_text(content_bytes):
 
 def detect_extension(content_type):
     return CONTENT_TYPE_MAP.get(content_type, ".txt")
+
+# Map of file extensions to their parser functions
+PARSER_MAP = {
+    ".docx": parse_docx,
+    ".xlsx": parse_xlsx,
+    ".pdf": parse_pdf,
+    ".txt": parse_text,
+}
 
 def create_json_response(data, status=200):
     return func.HttpResponse(
@@ -139,14 +146,8 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         ext = detect_extension(content_type)
 
         try:
-            if ext == ".docx":
-                text = parse_docx(content_bytes)
-            elif ext == ".xlsx":
-                text = parse_xlsx(content_bytes)
-            elif ext == ".pdf":
-                text = parse_pdf(content_bytes)
-            else:
-                text = parse_text(content_bytes)
+            parser = PARSER_MAP.get(ext, parse_text)
+            text = parser(content_bytes)
         except Exception as e:
             return create_json_response({"error": "Failed to parse file.", "details": str(e)}, 500)
 
